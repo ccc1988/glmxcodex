@@ -13,7 +13,7 @@ Codex 使用 OpenAI Responses API 协议，而智谱 GLM 只支持 Chat Completi
 ## 前置条件
 
 - macOS
-- Python 3.10+
+- Python 3.10 ~ 3.13（**不支持 3.14+**，litellm 依赖的 orjson 尚未适配）
 - [智谱 API Key](https://open.bigmodel.cn/)（Coding 套餐或标准套餐均可）
 - [Codex Desktop](https://github.com/openai/codex) 已安装
 
@@ -26,12 +26,16 @@ cd glmxcodex
 ```
 
 安装脚本会自动完成：
-1. 检查并安装 litellm（含 proxy 依赖）
-2. 交互式引导配置（API Key、套餐类型、模型选择）
-3. 生成所有配置文件
-4. Patch litellm 的两个已知 Bug
-5. 设置开机自启（macOS LaunchAgent）
-6. 启动服务并验证
+1. 预检系统环境（macOS、Python 版本、Codex Desktop）
+2. 自动检测 Python 3.10~3.13（优先 Miniconda，跳过不兼容版本）
+3. 安装/升级 litellm（含 proxy 依赖）
+4. 备份已有配置（自动保存到 `~/.codex-glm-backup-*`）
+5. 交互式引导配置（API Key、套餐类型、模型选择、端口、开机自启）
+6. 生成所有配置文件
+7. Patch litellm 已知 Bug（正则匹配 + 行级插入双重策略）
+8. 设置开机自启（macOS LaunchAgent）
+9. 启动服务并验证（健康检查 + Responses API 桥接测试）
+10. 安装辅助脚本到用户主目录
 
 安装完成后，**完全退出 Codex Desktop 再重新打开**，即可使用 GLM 模型。
 
@@ -84,19 +88,18 @@ launchctl load ~/Library/LaunchAgents/com.litellm.proxy.plist    # 恢复自启
 
 ```
 codex-glm/
-├── install.sh                  # 一键安装脚本
+├── install.sh                  # 一键安装脚本（核心）
 ├── uninstall.sh                # 卸载脚本
 ├── LICENSE                     # MIT 许可证
-├── config/                     # 配置模板
+├── config/                     # 配置模板（手动配置参考）
 │   ├── litellm-config.yaml.template
 │   ├── config.toml.template
 │   └── auth.json.template
 ├── patch/                      # litellm Bug 修复
-│   └── patch_litellm.py
-├── scripts/                    # 辅助脚本
-│   ├── start_litellm.sh
-│   └── stop_litellm.sh
-└── service/                    # macOS 服务配置（由 install.sh 自动生成）
+│   └── patch_litellm.py        # 自动定位 + 双策略 patch
+└── scripts/                    # 辅助脚本模板（install.sh 自动替换变量后安装到 ~/）
+    ├── start_litellm.sh
+    └── stop_litellm.sh
 ```
 
 ## 支持的模型
@@ -108,6 +111,9 @@ codex-glm/
 | glm-4-flash | GLM-4 快速版 |
 
 ## 常见问题
+
+### Q: 安装时报 Python 版本不兼容
+A: litellm 依赖的 orjson 不支持 Python 3.14+。请安装 Python 3.10~3.13，推荐使用 [Miniconda](https://docs.conda.io/en/latest/miniconda.html)。安装脚本会自动检测并优先使用 Miniconda 的 Python。
 
 ### Q: Codex 报错 "Unexpected keyword argument 'client_metadata'"
 A: litellm 的 Bug 未 patch。运行 `python3 patch/patch_litellm.py <handler.py路径>` 修复。

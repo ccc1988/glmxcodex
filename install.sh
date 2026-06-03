@@ -1,5 +1,4 @@
 #!/bin/bash
-set -e
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -13,11 +12,15 @@ CODEX_CONFIG_DIR="$HOME/.codex"
 LAUNCH_AGENTS_DIR="$HOME/Library/LaunchAgents"
 LITELLM_PORT=4000
 PLIST_NAME="com.litellm.proxy"
+PYTHON_BIN=""
+LITELLM_BIN=""
+BACKUP_DIR=""
 
 info()    { echo -e "${CYAN}[INFO]${NC} $1"; }
 success() { echo -e "${GREEN}[OK]${NC} $1"; }
 warn()    { echo -e "${YELLOW}[WARN]${NC} $1"; }
-error()   { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
+error()   { echo -e "${RED}[ERROR]${NC} $1"; }
+fatal()   { echo -e "${RED}[FATAL]${NC} $1"; exit 1; }
 
 banner() {
     echo ""
@@ -28,96 +31,171 @@ banner() {
     echo ""
 }
 
-check_os() {
-    if [[ "$(uname)" != "Darwin" ]]; then
-        error "本工具目前仅支持 macOS 系统"
+backup_existing() {
+    local has_existing=false
+    for f in "$LITELLM_CONFIG_DIR/litellm-config.yaml" "$CODEX_CONFIG_DIR/config.toml" "$CODEX_CONFIG_DIR/auth.json"; do
+        if [[ -f "$f" ]]; then
+            has_existing=true
+            break
+        fi
+    done
+
+    if [[ "$has_existing" != "true" ]]; then
+        return
     fi
-    success "操作系统: macOS"
+
+    BACKUP_DIR="$HOME/.codex-glm-backup-$(date +%Y%m%d-%H%M%S)"
+    mkdir -p "$BACKUP_DIR"
+    info "检测到已有配置，备份到 $BACKUP_DIR"
+
+    for f in "$LITELLM_CONFIG_DIR/litellm-config.yaml" "$CODEX_CONFIG_DIR/config.toml" "$CODEX_CONFIG_DIR/auth.json"; do
+        if [[ -f "$f" ]]; then
+            cp "$f" "$BACKUP_DIR/"
+            info "备份: $(basename $f)"
+        fi
+    done
 }
 
-check_python() {
+preflight_check() {
+    info "====== 预检 ======"
+
+    if [[ "$(uname)" != "Darwin" ]]; then
+        fatal "本工具目前仅支持 macOS 系统"
+    fi
+    success "操作系统: macOS"
+
+    if [[ -d "/Applications/Codex.app" ]]; then
+        success "Codex Desktop: 已安装"
+    else
+        warn "未检测到 /Applications/Codex.app，Codex Desktop 是否已安装？"
+        read -p "继续安装? [y/N]: " cont
+        [[ "$cont" =~ ^[Yy] ]] || exit 0
+    fi
+
+    if ! command -v curl &>/dev/null; then
+        fatal "curl 未安装"
+    fi
+    if ! command -v lsof &>/dev/null; then
+        fatal "lsof 未安装"
+    fi
+    success "基础工具: curl, lsof 可用"
+}
+
+find_python() {
+    info "====== 检测 Python 环境 ======"
+
     local candidates=(
         "/opt/miniconda3/bin/python3"
         "$HOME/miniconda3/bin/python3"
+        "$HOME/miniforge3/bin/python3"
+        "/opt/miniforge3/bin/python3"
         "/opt/homebrew/bin/python3"
         "/usr/local/bin/python3"
     )
 
-    PYTHON_BIN=""
-
     for p in "${candidates[@]}"; do
         if [[ -x "$p" ]]; then
-            local ver=$($p -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+            local ver=$($p -c "import sys; v=sys.version_info; print(f'{v.major}.{v.minor}')")
             local major=$(echo "$ver" | cut -d. -f1)
             local minor=$(echo "$ver" | cut -d. -f2)
             if [[ "$major" -eq 3 && "$minor" -ge 10 && "$minor" -le 13 ]]; then
                 PYTHON_BIN="$p"
-                break
+                success "Python $ver ($PYTHON_BIN)"
+                export PYTHON_BIN
+                return
             else
                 warn "跳过 $p (版本 $ver，需要 3.10~3.13)"
             fi
         fi
     done
 
-    if [[ -z "$PYTHON_BIN" ]]; then
-        if command -v python3 &>/dev/null; then
-            PYTHON_BIN=$(command -v python3)
-            local ver=$($PYTHON_BIN -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-            local minor=$(echo "$ver" | cut -d. -f2)
-            if [[ "$minor" -gt 13 ]]; then
-                error "系统 Python 版本为 $ver，litellm 依赖的 orjson 不支持 Python 3.14+。请安装 Python 3.10~3.13 (推荐 Miniconda: https://docs.conda.io/en/latest/miniconda.html)"
-            fi
-        else
-            error "未找到 python3，请先安装 Python 3.10~3.13 (推荐 Miniconda: https://docs.conda.io/en/latest/miniconda.html)"
+    if command -v python3 &>/dev/null; then
+        local p=$(command -v python3)
+        local ver=$($p -c "import sys; v=sys.version_info; print(f'{v.major}.{v.minor}')")
+        local minor=$(echo "$ver" | cut -d. -f2)
+        if [[ "$minor" -ge 10 && "$minor" -le 13 ]]; then
+            PYTHON_BIN="$p"
+            success "Python $ver ($PYTHON_BIN)"
+            export PYTHON_BIN
+            return
+        fi
+        if [[ "$minor" -gt 13 ]]; then
+            fatal "系统 Python 版本为 $ver，litellm 依赖的 orjson 不支持 Python 3.14+。\n请安装 Python 3.10~3.13 (推荐 Miniconda: https://docs.conda.io/en/latest/miniconda.html)"
         fi
     fi
 
-    PYTHON_VERSION=$($PYTHON_BIN -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-    success "Python 版本: $PYTHON_VERSION ($PYTHON_BIN)"
-}
-
-check_pip() {
-    if $PYTHON_BIN -m pip --version &>/dev/null; then
-        success "pip 可用"
-    else
-        error "pip 不可用，请先安装 pip"
-    fi
+    fatal "未找到 Python 3.10~3.13，请安装 (推荐 Miniconda: https://docs.conda.io/en/latest/miniconda.html)"
 }
 
 install_litellm() {
-    info "检查 litellm ..."
+    info "====== 安装 litellm ======"
+
+    if ! $PYTHON_BIN -m pip --version &>/dev/null; then
+        fatal "pip 不可用"
+    fi
+
     if $PYTHON_BIN -c "import litellm" 2>/dev/null; then
-        LITELLM_VERSION=$($PYTHON_BIN -c "import importlib.metadata; print(importlib.metadata.version('litellm'))")
-        success "litellm 已安装，版本: $LITELLM_VERSION"
+        local ver=$($PYTHON_BIN -c "import importlib.metadata; print(importlib.metadata.version('litellm'))")
+        success "litellm 已安装，版本: $ver"
+
+        local need_upgrade=false
+        if ! $PYTHON_BIN -c "import packaging.version; exit(0 if packaging.version.Version('$ver') >= packaging.version.Version('1.66.3') else 1)" 2>/dev/null; then
+            need_upgrade=true
+        fi
+
+        try_import_proxy=$($PYTHON_BIN -c "from litellm.proxy.proxy_server import *" 2>&1)
+        if [[ $? -ne 0 ]]; then
+            need_upgrade=true
+        fi
+
+        if [[ "$need_upgrade" == "true" ]]; then
+            info "正在升级 litellm[proxy] ..."
+            $PYTHON_BIN -m pip install --upgrade 'litellm[proxy]' || fatal "litellm 升级失败"
+            success "litellm 升级完成"
+        fi
     else
         info "正在安装 litellm[proxy] ..."
-        $PYTHON_BIN -m pip install 'litellm[proxy]' || error "litellm 安装失败"
+        $PYTHON_BIN -m pip install 'litellm[proxy]' || fatal "litellm 安装失败"
         success "litellm 安装完成"
     fi
 
-    LITELLM_VERSION=$($PYTHON_BIN -c "import importlib.metadata; print(importlib.metadata.version('litellm'))")
-    if $PYTHON_BIN -c "import packaging.version; exit(0 if packaging.version.Version('$LITELLM_VERSION') >= packaging.version.Version('1.66.3') else 1)" 2>/dev/null; then
-        success "litellm 版本满足要求 (>= 1.66.3)"
-    else
-        warn "litellm 版本 $LITELLM_VERSION 低于 1.66.3，正在升级 ..."
-        $PYTHON_BIN -m pip install --upgrade 'litellm[proxy]' || error "litellm 升级失败"
-        success "litellm 升级完成"
-    fi
-
     LITELLM_BIN=$($PYTHON_BIN -c "import shutil; print(shutil.which('litellm'))" 2>/dev/null)
-    if [[ -z "$LITELLM_BIN" ]]; then
-        LITELLM_BIN="$($PYTHON_BIN -c 'import sys; print(sys.prefix)')/bin/litellm"
+    if [[ -z "$LITELLM_BIN" || ! -x "$LITELLM_BIN" ]]; then
+        LITELLM_BIN="$(dirname $PYTHON_BIN)/litellm"
     fi
     if [[ ! -x "$LITELLM_BIN" ]]; then
-        LITELLM_BIN=$(dirname "$PYTHON_BIN")/litellm
+        fatal "找不到 litellm 可执行文件"
     fi
-    info "litellm 可执行文件: $LITELLM_BIN"
+    success "litellm 可执行文件: $LITELLM_BIN"
 }
 
 ask_config() {
     echo ""
     info "====== 配置信息 ======"
     echo ""
+
+    if [[ -f "$LITELLM_CONFIG_DIR/litellm-config.yaml" ]]; then
+        local old_key=$(grep "api_key:" "$LITELLM_CONFIG_DIR/litellm-config.yaml" 2>/dev/null | head -1 | sed 's/.*api_key: *//')
+        local old_base=$(grep "api_base:" "$LITELLM_CONFIG_DIR/litellm-config.yaml" 2>/dev/null | head -1 | sed 's/.*api_base: *//')
+        local old_model=$(grep "model_name:" "$LITELLM_CONFIG_DIR/litellm-config.yaml" 2>/dev/null | head -1 | sed 's/.*model_name: *//')
+
+        if [[ -n "$old_key" && "$old_key" != "YOUR_API_KEY_HERE" ]]; then
+            echo -e "${YELLOW}检测到已有配置:${NC}"
+            echo "  API Key: ${old_key:0:8}..."
+            echo "  接口: $old_base"
+            echo "  模型: $old_model"
+            echo ""
+            read -p "是否沿用已有配置? [Y/n]: " reuse
+            reuse=${reuse:-Y}
+            if [[ "$reuse" =~ ^[Yy] ]]; then
+                API_KEY="$old_key"
+                API_BASE="$old_base"
+                MODEL="$old_model"
+                success "沿用已有配置"
+                return
+            fi
+        fi
+    fi
 
     echo -e "${YELLOW}请选择你的智谱套餐类型:${NC}"
     echo "  1) Coding 套餐 (接口: open.bigmodel.cn/api/coding/paas/v4)"
@@ -127,23 +205,15 @@ ask_config() {
     plan_choice=${plan_choice:-1}
 
     case $plan_choice in
-        1)
-            API_BASE="https://open.bigmodel.cn/api/coding/paas/v4"
-            success "已选择 Coding 套餐"
-            ;;
-        2)
-            API_BASE="https://open.bigmodel.cn/api/paas/v4"
-            success "已选择标准套餐"
-            ;;
-        *)
-            error "无效选项"
-            ;;
+        1) API_BASE="https://open.bigmodel.cn/api/coding/paas/v4"; success "已选择 Coding 套餐" ;;
+        2) API_BASE="https://open.bigmodel.cn/api/paas/v4"; success "已选择标准套餐" ;;
+        *) fatal "无效选项" ;;
     esac
 
     echo ""
     read -p "请输入你的智谱 API Key: " api_key
     if [[ -z "$api_key" ]]; then
-        error "API Key 不能为空"
+        fatal "API Key 不能为空"
     fi
     API_KEY="$api_key"
     success "API Key 已设置"
@@ -168,6 +238,18 @@ ask_config() {
     echo ""
     read -p "litellm 服务端口 [默认 4000]: " port_input
     LITELLM_PORT=${port_input:-4000}
+
+    if lsof -i :${LITELLM_PORT} -t &>/dev/null; then
+        warn "端口 ${LITELLM_PORT} 已被占用"
+        read -p "是否停止占用进程并继续? [Y/n]: " kill_port
+        kill_port=${kill_port:-Y}
+        if [[ "$kill_port" =~ ^[Yy] ]]; then
+            lsof -i :${LITELLM_PORT} -t | xargs kill 2>/dev/null
+            sleep 2
+        else
+            fatal "端口冲突，安装终止"
+        fi
+    fi
     success "端口: $LITELLM_PORT"
 
     echo ""
@@ -221,21 +303,9 @@ EOF
 patch_litellm() {
     info "====== Patch litellm Bug ======"
 
-    LITELLM_PATH=$($PYTHON_BIN -c "import litellm; print(litellm.__path__[0])")
-    HANDLER_FILE="$LITELLM_PATH/responses/litellm_completion_transformation/handler.py"
+    $PYTHON_BIN "$SCRIPT_DIR/patch/patch_litellm.py" || fatal "Patch 失败，请查看上方错误信息"
 
-    if [[ ! -f "$HANDLER_FILE" ]]; then
-        error "找不到 handler.py: $HANDLER_FILE"
-    fi
-
-    if grep -q "client_metadata" "$HANDLER_FILE" 2>/dev/null && grep -q "Patch: 过滤" "$HANDLER_FILE" 2>/dev/null; then
-        success "litellm 已经 patch 过，跳过"
-        return
-    fi
-
-    $PYTHON_BIN "$SCRIPT_DIR/patch/patch_litellm.py" "$HANDLER_FILE" || error "Patch 失败"
-
-    success "litellm Bug 已修复"
+    success "litellm Bug 修复完成"
 }
 
 setup_launch_agent() {
@@ -248,7 +318,7 @@ setup_launch_agent() {
 
     mkdir -p "$LAUNCH_AGENTS_DIR"
 
-    if launchctl list "$PLIST_NAME" &>/dev/null; then
+    if [[ -f "$LAUNCH_AGENTS_DIR/$PLIST_NAME.plist" ]] && launchctl list "$PLIST_NAME" &>/dev/null; then
         launchctl unload "$LAUNCH_AGENTS_DIR/$PLIST_NAME.plist" 2>/dev/null || true
     fi
 
@@ -306,12 +376,24 @@ start_litellm() {
     fi
 
     info "等待服务启动 ..."
-    for i in $(seq 1 15); do
+    local started=false
+    for i in $(seq 1 20); do
         if curl -s "http://127.0.0.1:${LITELLM_PORT}/health" &>/dev/null; then
+            started=true
             break
         fi
         sleep 1
     done
+
+    if [[ "$started" != "true" ]]; then
+        error "litellm 启动超时，日志:"
+        tail -20 /tmp/litellm.log 2>/dev/null
+        echo ""
+        echo "你可以稍后手动启动: ~/start_litellm.sh"
+        echo "或查看日志: cat /tmp/litellm.log"
+        return
+    fi
+    success "litellm 服务已启动"
 }
 
 verify() {
@@ -336,18 +418,22 @@ verify() {
         success "Responses API 桥接测试通过！GLM 已正常响应"
     else
         warn "Responses API 桥接测试失败，请检查配置和 API Key"
-        echo "  响应: $(echo "$RESPONSE" | head -c 200)"
+        echo "  响应: $(echo "$RESPONSE" | head -c 300)"
     fi
 }
 
-copy_scripts() {
+install_scripts() {
     info "====== 安装辅助脚本 ======"
 
-    cp "$SCRIPT_DIR/scripts/start_litellm.sh" "$HOME/start_litellm.sh"
+    sed -e "s|__PYTHON_BIN__|${PYTHON_BIN}|g" \
+        -e "s|__LITELLM_BIN__|${LITELLM_BIN}|g" \
+        -e "s|__LITELLM_PORT__|${LITELLM_PORT}|g" \
+        "$SCRIPT_DIR/scripts/start_litellm.sh" > "$HOME/start_litellm.sh"
     chmod +x "$HOME/start_litellm.sh"
     success "启动脚本: ~/start_litellm.sh"
 
-    cp "$SCRIPT_DIR/scripts/stop_litellm.sh" "$HOME/stop_litellm.sh"
+    sed -e "s|__LITELLM_PORT__|${LITELLM_PORT}|g" \
+        "$SCRIPT_DIR/scripts/stop_litellm.sh" > "$HOME/stop_litellm.sh"
     chmod +x "$HOME/stop_litellm.sh"
     success "停止脚本: ~/stop_litellm.sh"
 }
@@ -355,7 +441,7 @@ copy_scripts() {
 print_summary() {
     echo ""
     echo -e "${GREEN}╔══════════════════════════════════════════════════╗${NC}"
-    echo -e "${GREEN}║${NC}              🎉 安装配置完成！                   ${GREEN}║${NC}"
+    echo -e "${GREEN}║${NC}              安装配置完成！                      ${GREEN}║${NC}"
     echo -e "${GREEN}╚══════════════════════════════════════════════════╝${NC}"
     echo ""
     echo "完整链路: Codex Desktop (Responses API) → litellm (:${LITELLM_PORT}) → 智谱 GLM (Chat Completions)"
@@ -365,6 +451,9 @@ print_summary() {
     echo "  Codex 配置:    $CODEX_CONFIG_DIR/config.toml"
     echo "  Codex 认证:    $CODEX_CONFIG_DIR/auth.json"
     echo "  litellm 日志:  /tmp/litellm.log"
+    if [[ -n "$BACKUP_DIR" ]]; then
+        echo "  旧配置备份:    $BACKUP_DIR"
+    fi
     echo ""
     echo "常用命令:"
     echo "  启动 litellm:  ~/start_litellm.sh"
@@ -381,9 +470,9 @@ print_summary() {
 
 main() {
     banner
-    check_os
-    check_python
-    check_pip
+    preflight_check
+    find_python
+    backup_existing
     install_litellm
     ask_config
     generate_configs
@@ -391,7 +480,7 @@ main() {
     setup_launch_agent
     start_litellm
     verify
-    copy_scripts
+    install_scripts
     print_summary
 }
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PORT=${1:-4000}
+PORT="__LITELLM_PORT__"
 
 if lsof -i :${PORT} -t &>/dev/null; then
     echo "正在停止 litellm (端口 ${PORT})..."

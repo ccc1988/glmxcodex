@@ -1,5 +1,4 @@
 #!/bin/bash
-set -e
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -32,10 +31,17 @@ fi
 
 read -p "是否删除配置文件? [y/N]: " del_config
 if [[ "$del_config" =~ ^[Yy] ]]; then
-    rm -f "$HOME/.claude/litellm-config.yaml"
-    rm -f "$HOME/.codex/config.toml"
-    rm -f "$HOME/.codex/auth.json"
-    success "配置文件已删除"
+    BACKUP_DIR="$HOME/.codex-glm-backup-$(date +%Y%m%d-%H%M%S)"
+    mkdir -p "$BACKUP_DIR"
+
+    for f in "$HOME/.claude/litellm-config.yaml" "$HOME/.codex/config.toml" "$HOME/.codex/auth.json"; do
+        if [[ -f "$f" ]]; then
+            cp "$f" "$BACKUP_DIR/"
+            rm -f "$f"
+            info "备份并删除: $(basename $f)"
+        fi
+    done
+    success "配置文件已备份到 $BACKUP_DIR 并删除"
 else
     info "保留配置文件"
 fi
