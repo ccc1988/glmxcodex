@@ -36,13 +36,44 @@ check_os() {
 }
 
 check_python() {
-    if command -v python3 &>/dev/null; then
-        PYTHON_BIN=$(command -v python3)
-        PYTHON_VERSION=$($PYTHON_BIN -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
-        success "Python 版本: $PYTHON_VERSION ($PYTHON_BIN)"
-    else
-        error "未找到 python3，请先安装 Python 3.10+"
+    local candidates=(
+        "/opt/miniconda3/bin/python3"
+        "$HOME/miniconda3/bin/python3"
+        "/opt/homebrew/bin/python3"
+        "/usr/local/bin/python3"
+    )
+
+    PYTHON_BIN=""
+
+    for p in "${candidates[@]}"; do
+        if [[ -x "$p" ]]; then
+            local ver=$($p -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+            local major=$(echo "$ver" | cut -d. -f1)
+            local minor=$(echo "$ver" | cut -d. -f2)
+            if [[ "$major" -eq 3 && "$minor" -ge 10 && "$minor" -le 13 ]]; then
+                PYTHON_BIN="$p"
+                break
+            else
+                warn "跳过 $p (版本 $ver，需要 3.10~3.13)"
+            fi
+        fi
+    done
+
+    if [[ -z "$PYTHON_BIN" ]]; then
+        if command -v python3 &>/dev/null; then
+            PYTHON_BIN=$(command -v python3)
+            local ver=$($PYTHON_BIN -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+            local minor=$(echo "$ver" | cut -d. -f2)
+            if [[ "$minor" -gt 13 ]]; then
+                error "系统 Python 版本为 $ver，litellm 依赖的 orjson 不支持 Python 3.14+。请安装 Python 3.10~3.13 (推荐 Miniconda: https://docs.conda.io/en/latest/miniconda.html)"
+            fi
+        else
+            error "未找到 python3，请先安装 Python 3.10~3.13 (推荐 Miniconda: https://docs.conda.io/en/latest/miniconda.html)"
+        fi
     fi
+
+    PYTHON_VERSION=$($PYTHON_BIN -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+    success "Python 版本: $PYTHON_VERSION ($PYTHON_BIN)"
 }
 
 check_pip() {
