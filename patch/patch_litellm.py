@@ -6,8 +6,16 @@ def patch_handler(filepath):
     with open(filepath, "r", encoding="utf-8") as f:
         content = f.read()
 
-    if "Patch: 过滤" in content:
-        print("已经 patch 过，跳过")
+    already_patched = (
+        'client_metadata' in content
+        and 'max_output_tokens' in content
+        and 'acompletion_args.pop' in content
+        and 'completion_args.pop' in content
+        and 't.get("type") == "function"' in content
+    )
+
+    if already_patched:
+        print("OK: 已经 patch 过，跳过")
         return
 
     patch_code_async = """
@@ -37,6 +45,8 @@ def patch_handler(filepath):
     content, n1 = re.subn(pattern_async, replacement_async, content, count=1)
     if n1 == 0:
         print("ERROR: 未找到异步方法 patch 点")
+        print("提示: 文件可能已经被 patch 过，或者 litellm 版本更新导致代码结构变化")
+        print("请检查文件内容，确认是否需要手动 patch")
         sys.exit(1)
 
     pattern_sync = r"(completion_args\.update\(litellm_completion_request\)\n)(\n\s+litellm_completion_response)"
@@ -44,6 +54,8 @@ def patch_handler(filepath):
     content, n2 = re.subn(pattern_sync, replacement_sync, content, count=1)
     if n2 == 0:
         print("ERROR: 未找到同步方法 patch 点")
+        print("提示: 文件可能已经被 patch 过，或者 litellm 版本更新导致代码结构变化")
+        print("请检查文件内容，确认是否需要手动 patch")
         sys.exit(1)
 
     with open(filepath, "w", encoding="utf-8") as f:
