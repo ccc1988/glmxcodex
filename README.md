@@ -20,8 +20,8 @@ Codex 使用 OpenAI Responses API 协议，而智谱 GLM 只支持 Chat Completi
 ## 一键安装
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/codex-glm.git
-cd codex-glm
+git clone https://github.com/ccc1988/glmxcodex.git
+cd glmxcodex
 ./install.sh
 ```
 
