@@ -166,11 +166,13 @@ for d in ['$CONFIG_DIR', os.path.expanduser('~/.config/codex-glm'), os.path.expa
                     break
     except: pass
 " 2>/dev/null)"
-        [ -n "$val" ] && info "Found existing key for $varname"
+        if [ -n "$val" ]; then
+            info "Found existing key for $varname" >&2
+        fi
     fi
 
     if [ -z "$val" ] && [ "$NONINTERACTIVE" = true ]; then
-        info "$varname: skipped (empty, non-interactive mode)"
+        info "$varname: skipped (empty, non-interactive mode)" >&2
         echo ""
         return
     fi
