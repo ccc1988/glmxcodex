@@ -115,9 +115,9 @@ INSTRUCTIONS_REPLACE = {
         ("GPT-5", "GLM-5.1"),
     ],
     "deepseek": [
-        ("based on GPT-5", "based on DeepSeek AI"),
+        ("based on GPT-5", "based on DeepSeek"),
+        ("You are Codex, a coding agent based on", "You are Codex, powered by DeepSeek — a coding agent"),
         ("OpenAI", "DeepSeek"),
-        ("GPT-5", "DeepSeek"),
     ],
 }
 
