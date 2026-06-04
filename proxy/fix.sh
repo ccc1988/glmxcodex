@@ -75,19 +75,26 @@ echo ""
 # 3. Fix model catalog
 #==================================================================
 echo -e "${YELLOW}── Check 3/5: Model catalog${NC}"
-if [ ! -f "$CATALOG_FILE" ]; then
-    warn "Model catalog missing — installing"
+CAT_OK=false
+if [ -f "$CATALOG_FILE" ]; then
+    SIZE=$(wc -c < "$CATALOG_FILE" 2>/dev/null || echo 0)
+    # Real cc-switch catalog is ~78KB; our old broken one is ~4KB
+    if [ "$SIZE" -gt 70000 ]; then
+        N=$(python3 -c "import json;print(len(json.load(open('$CATALOG_FILE')).get('models',[])))" 2>/dev/null || echo 0)
+        [ "$N" -gt 0 ] && CAT_OK=true && ok "Model catalog: $N models"
+    fi
+fi
+
+if [ "$CAT_OK" = false ]; then
+    warn "Model catalog invalid or missing — reinstalling"
     mkdir -p "$(dirname "$CATALOG_FILE")"
     if [ -f "$SCRIPT_DIR/../config/model-catalog.json" ]; then
         cp "$SCRIPT_DIR/../config/model-catalog.json" "$CATALOG_FILE"
         ok "Model catalog installed"
         FIXED_ANYTHING=true
     else
-        warn "Catalog template not found"
+        warn "Catalog template not found at $SCRIPT_DIR/../config/model-catalog.json"
     fi
-else
-    N=$(python3 -c "import json;print(len(json.load(open('$CATALOG_FILE')).get('models',[])))" 2>/dev/null || echo 0)
-    [ "$N" -gt 0 ] && ok "Model catalog: $N models" || { warn "Invalid catalog"; FIXED_ANYTHING=true; }
 fi
 echo ""
 
