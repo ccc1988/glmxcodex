@@ -61,6 +61,14 @@ PY_VER=$("$PYTHON" -c "import sys; print(f'{sys.version_info.major}.{sys.version
 ok "Python $PY_VER ($(which "$PYTHON"))"
 command -v curl &>/dev/null && ok "curl: available" || warn "curl not found"
 case "$OS" in Darwin) ok "OS: macOS $OS_VER" ;; Linux) ok "OS: Linux $OS_VER" ;; Windows) ok "OS: Windows" ;; *) warn "OS: $OS" ;; esac
+
+# Detect cc-switch / Codex++ (they silently overwrite config.toml)
+CCSW_PID=$(pgrep -f "cc-switch" 2>/dev/null || true)
+CCPP_PID=$(pgrep -f "CodexPlusPlus" 2>/dev/null || true)
+if [ -n "$CCSW_PID" ] || [ -n "$CCPP_PID" ]; then
+    warn "cc-switch/Codex++ is running - it will overwrite config.toml!"
+    warn "Close cc-switch/Codex++ before using GLM/DeepSeek with this proxy."
+fi
 echo ""
 
 #==================================================================
