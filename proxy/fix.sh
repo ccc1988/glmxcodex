@@ -76,30 +76,15 @@ echo ""
 #==================================================================
 echo -e "${YELLOW}── Check 3/5: Model catalog${NC}"
 if [ ! -f "$CATALOG_FILE" ]; then
-    warn "Model catalog missing — regenerating"
+    warn "Model catalog missing — installing"
     mkdir -p "$(dirname "$CATALOG_FILE")"
-    export _CF="$CATALOG_FILE"
-    python3 << 'PY_CATALOG'
-import json, os
-cp = os.path.expanduser(os.environ.get('_CF',''))
-os.makedirs(os.path.dirname(cp), exist_ok=True)
-models = [
-    {'id': 'glm-5.1', 'display_name': 'GLM-5.1', 'slug': 'glm-5.1', 'provider': 'zhipu',
-     'visibility': 'list', 'supported_in_api': True, 'context_window': 200000, 'max_context_window': 200000,
-     'description': 'GLM-5.1 (Zhipu AI)', 'input_modalities': ['text', 'image'],
-     'supports_parallel_tool_calls': True, 'default_reasoning_level': 'medium',
-     'supported_reasoning_levels': [{'effort': 'low'}, {'effort': 'medium'}, {'effort': 'high'}],
-     'default_reasoning_summary': 'none', 'default_verbosity': 'low',
-     'supports_reasoning_summaries': True, 'supports_image_detail_original': True,
-     'apply_patch_tool_type': 'freeform', 'shell_type': 'shell_command', 'priority': 1000,
-     'experimental_supported_tools': [], 'additional_speed_tiers': [], 'service_tiers': [],
-     'model_messages': {}, 'base_instructions': 'You are Codex.', 'availability_nux': None, 'upgrade': None},
-]
-with open(cp, 'w') as f:
-    json.dump({'models': models}, f, indent=2)
-print('Regenerated: ' + cp)
-PY_CATALOG
-    FIXED_ANYTHING=true
+    if [ -f "$SCRIPT_DIR/../config/model-catalog.json" ]; then
+        cp "$SCRIPT_DIR/../config/model-catalog.json" "$CATALOG_FILE"
+        ok "Model catalog installed"
+        FIXED_ANYTHING=true
+    else
+        warn "Catalog template not found"
+    fi
 else
     N=$(python3 -c "import json;print(len(json.load(open('$CATALOG_FILE')).get('models',[])))" 2>/dev/null || echo 0)
     [ "$N" -gt 0 ] && ok "Model catalog: $N models" || { warn "Invalid catalog"; FIXED_ANYTHING=true; }

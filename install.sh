@@ -149,98 +149,23 @@ PY_WRITE_CONFIG
 echo ""
 
 #==================================================================
-# Step 4: Model catalog
+# Step 4: Model catalog — copy verified template
 #==================================================================
 echo -e "${YELLOW}── Step 4/5: Model catalog${NC}"
 
-export _DK2="$DEEPSEEK_KEY" _CF="$CATALOG_FILE" _DR2="$DRY_RUN"
-python3 << 'PY_CATALOG'
-import json, os
-
-models = [
-    {
-        'id': 'glm-5.1', 'display_name': 'GLM-5.1', 'slug': 'glm-5.1',
-        'provider': 'zhipu', 'visibility': 'list', 'supported_in_api': True,
-        'context_window': 200000, 'max_context_window': 200000,
-        'description': 'GLM-5.1 (Zhipu AI)',
-        'input_modalities': ['text', 'image'],
-        'supports_parallel_tool_calls': True,
-        'default_reasoning_level': 'medium',
-        'supported_reasoning_levels': [
-            {'effort': 'low', 'description': 'Fast'},
-            {'effort': 'medium', 'description': 'Balanced'},
-            {'effort': 'high', 'description': 'Deep'}
-        ],
-        'default_reasoning_summary': 'none', 'default_verbosity': 'low',
-        'support_verbosity': True, 'supports_reasoning_summaries': True,
-        'supports_image_detail_original': True,
-        'supports_search_tool': False, 'web_search_tool_type': 'text_and_image',
-        'effective_context_window_percent': 95,
-        'truncation_policy': {'mode': 'tokens', 'limit': 10000},
-        'apply_patch_tool_type': 'freeform', 'shell_type': 'shell_command',
-        'experimental_supported_tools': [], 'additional_speed_tiers': [],
-        'service_tiers': [], 'priority': 1000,
-        'model_messages': {'instructions_template': 'You are Codex, a coding agent.'},
-        'base_instructions': 'You are Codex, a coding agent powered by GLM (Zhipu AI).',
-        'availability_nux': None, 'upgrade': None,
-    },
-    {
-        'id': 'glm-5', 'display_name': 'GLM-5', 'slug': 'glm-5',
-        'provider': 'zhipu', 'visibility': 'list', 'supported_in_api': True,
-        'context_window': 128000, 'max_context_window': 128000,
-        'description': 'GLM-5 (Zhipu AI)',
-        'input_modalities': ['text'],
-        'supports_parallel_tool_calls': True,
-        'default_reasoning_level': 'medium',
-        'supported_reasoning_levels': [
-            {'effort': 'low', 'description': 'Fast'},
-            {'effort': 'medium', 'description': 'Balanced'}
-        ],
-        'default_reasoning_summary': 'none', 'default_verbosity': 'low',
-        'support_verbosity': True, 'supports_reasoning_summaries': True,
-        'supports_image_detail_original': False,
-        'supports_search_tool': False, 'web_search_tool_type': 'text_and_image',
-        'effective_context_window_percent': 95,
-        'truncation_policy': {'mode': 'tokens', 'limit': 10000},
-        'apply_patch_tool_type': 'freeform', 'shell_type': 'shell_command',
-        'experimental_supported_tools': [], 'additional_speed_tiers': [],
-        'service_tiers': [], 'priority': 900,
-        'model_messages': {'instructions_template': 'You are Codex, a coding agent.'},
-        'base_instructions': 'You are Codex, a coding agent powered by GLM (Zhipu AI).',
-        'availability_nux': None, 'upgrade': None,
-    },
-]
-
-if os.environ.get('_DK2','').strip():
-    models.append({
-        'id': 'deepseek-chat', 'display_name': 'DeepSeek Chat', 'slug': 'deepseek-chat',
-        'provider': 'deepseek', 'visibility': 'list', 'supported_in_api': True,
-        'context_window': 128000, 'max_context_window': 128000,
-        'description': 'DeepSeek Chat', 'input_modalities': ['text'],
-        'supports_parallel_tool_calls': True, 'default_reasoning_level': 'medium',
-        'supported_reasoning_levels': [{'effort': 'medium'}],
-        'default_reasoning_summary': 'none', 'default_verbosity': 'low',
-        'support_verbosity': True, 'supports_reasoning_summaries': True,
-        'supports_image_detail_original': False,
-        'supports_search_tool': False, 'web_search_tool_type': 'text_and_image',
-        'effective_context_window_percent': 95,
-        'truncation_policy': {'mode': 'tokens', 'limit': 10000},
-        'apply_patch_tool_type': 'freeform', 'shell_type': 'shell_command',
-        'experimental_supported_tools': [], 'additional_speed_tiers': [],
-        'service_tiers': [], 'priority': 800,
-        'model_messages': {'instructions_template': 'You are Codex, a coding agent.'},
-        'base_instructions': 'You are Codex, a coding agent powered by DeepSeek.',
-        'availability_nux': None, 'upgrade': None,
-    })
-
-cp = os.path.expanduser(os.environ.get('_CF',''))
-data = {'models': models}
-if os.environ.get('_DR2','') != 'true':
-    os.makedirs(os.path.dirname(cp), exist_ok=True)
-    with open(cp, 'w') as f: json.dump(data, f, indent=2, ensure_ascii=False)
-print(f'Model catalog: {cp} ({len(models)} models)')
-PY_CATALOG
-[ $? -ne 0 ] && err "Failed to generate model catalog"
+if [ "$DRY_RUN" = true ]; then
+    info "[DRY RUN] Would copy model catalog to $CATALOG_FILE"
+else
+    if [ -f "$SCRIPT_DIR/config/model-catalog.json" ]; then
+        mkdir -p "$(dirname "$CATALOG_FILE")"
+        cp "$SCRIPT_DIR/config/model-catalog.json" "$CATALOG_FILE"
+        ok "Model catalog installed"
+    elif [ -f "$CATALOG_FILE" ]; then
+        ok "Model catalog already exists"
+    else
+        err "Model catalog template not found: $SCRIPT_DIR/config/model-catalog.json"
+    fi
+fi
 ok "Model catalog ready"
 echo ""
 
