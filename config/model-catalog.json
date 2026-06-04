@@ -185,6 +185,255 @@
       "upgrade": null,
       "visibility": "list",
       "web_search_tool_type": "text_and_image"
+    },
+    {
+      "additional_speed_tiers": [],
+      "apply_patch_tool_type": "freeform",
+      "availability_nux": null,
+      "base_instructions": "You are Codex, powered by DeepSeek-V4-Flash — a fast and efficient coding agent. You and the user share one workspace, and your job is to collaborate with them until their goal is genuinely handled.\n\n# Core Principles\n\n- You are an AI assistant powered by DeepSeek.\n- When asked about your identity, you truthfully state you are based on DeepSeek, not GPT.\n- You write clean, well-structured code.\n- You ask clarifying questions rather than assuming.",
+      "context_window": 131072,
+      "default_reasoning_level": "medium",
+      "default_reasoning_summary": "none",
+      "default_verbosity": "low",
+      "description": "DeepSeek-V4 Flash — fast and cost-efficient",
+      "display_name": "DeepSeek-V4-Flash",
+      "effective_context_window_percent": 95,
+      "experimental_supported_tools": [],
+      "input_modalities": [
+        "text"
+      ],
+      "max_context_window": 131072,
+      "model_messages": {},
+      "priority": 2000,
+      "service_tiers": [],
+      "shell_type": "shell_command",
+      "slug": "deepseek-v4-flash",
+      "support_verbosity": true,
+      "supported_in_api": true,
+      "supported_reasoning_levels": [
+        {
+          "description": "Fast responses with lighter reasoning",
+          "effort": "low"
+        },
+        {
+          "description": "Balances speed and reasoning depth for everyday tasks",
+          "effort": "medium"
+        },
+        {
+          "description": "Greater reasoning depth for complex problems",
+          "effort": "high"
+        }
+      ],
+      "supports_image_detail_original": false,
+      "supports_parallel_tool_calls": true,
+      "supports_reasoning_summaries": true,
+      "supports_search_tool": false,
+      "truncation_policy": {
+        "limit": 10000,
+        "mode": "tokens"
+      },
+      "upgrade": null,
+      "visibility": "list",
+      "web_search_tool_type": "none"
+    },
+    {
+      "additional_speed_tiers": [],
+      "apply_patch_tool_type": "freeform",
+      "availability_nux": null,
+      "base_instructions": "You are Codex, powered by DeepSeek-V4-Pro — a top-tier coding agent. You and the user share one workspace, and your job is to collaborate with them until their goal is genuinely handled.\n\n# Core Principles\n\n- You are an AI assistant powered by DeepSeek.\n- When asked about your identity, you truthfully state you are based on DeepSeek, not GPT.\n- You write clean, well-structured code.\n- You think step-by-step before answering complex questions.\n- You ask clarifying questions rather than assuming.",
+      "context_window": 131072,
+      "default_reasoning_level": "medium",
+      "default_reasoning_summary": "none",
+      "default_verbosity": "low",
+      "description": "DeepSeek-V4 Pro — maximum capability",
+      "display_name": "DeepSeek-V4-Pro",
+      "effective_context_window_percent": 95,
+      "experimental_supported_tools": [],
+      "input_modalities": [
+        "text"
+      ],
+      "max_context_window": 131072,
+      "model_messages": {},
+      "priority": 2001,
+      "service_tiers": [],
+      "shell_type": "shell_command",
+      "slug": "deepseek-v4-pro",
+      "support_verbosity": true,
+      "supported_in_api": true,
+      "supported_reasoning_levels": [
+        {
+          "description": "Greater reasoning depth for complex problems",
+          "effort": "high"
+        },
+        {
+          "description": "Extra high reasoning depth for complex problems",
+          "effort": "xhigh"
+        }
+      ],
+      "supports_image_detail_original": false,
+      "supports_parallel_tool_calls": true,
+      "supports_reasoning_summaries": true,
+      "supports_search_tool": false,
+      "truncation_policy": {
+        "limit": 10000,
+        "mode": "tokens"
+      },
+      "upgrade": null,
+      "visibility": "list",
+      "web_search_tool_type": "none"
+    },
+    {
+      "additional_speed_tiers": [],
+      "apply_patch_tool_type": "freeform",
+      "availability_nux": null,
+      "base_instructions": "You are Codex, a coding agent based on GPT-5. You and the user share one workspace, and your job is to collaborate with them until their goal is genuinely handled.\n\n# Core Principles\n\n- You are an AI assistant powered by OpenAI.\n- You write clean, well-structured code.\n- You explain your reasoning when it helps the user learn.\n- You ask clarifying questions rather than assuming.",
+      "context_window": 200000,
+      "default_reasoning_level": "medium",
+      "default_reasoning_summary": "none",
+      "default_verbosity": "low",
+      "description": "GPT-5 — OpenAI's most capable model",
+      "display_name": "GPT-5",
+      "effective_context_window_percent": 95,
+      "experimental_supported_tools": [],
+      "input_modalities": [
+        "text",
+        "image"
+      ],
+      "max_context_window": 200000,
+      "model_messages": {},
+      "priority": 3000,
+      "service_tiers": [],
+      "shell_type": "shell_command",
+      "slug": "gpt-5",
+      "support_verbosity": true,
+      "supported_in_api": true,
+      "supported_reasoning_levels": [
+        {
+          "description": "Fast responses with lighter reasoning",
+          "effort": "low"
+        },
+        {
+          "description": "Balances speed and reasoning depth for everyday tasks",
+          "effort": "medium"
+        },
+        {
+          "description": "Greater reasoning depth for complex problems",
+          "effort": "high"
+        },
+        {
+          "description": "Extra high reasoning depth for complex problems",
+          "effort": "xhigh"
+        }
+      ],
+      "supports_image_detail_original": true,
+      "supports_parallel_tool_calls": true,
+      "supports_reasoning_summaries": true,
+      "supports_search_tool": true,
+      "truncation_policy": {
+        "limit": 10000,
+        "mode": "tokens"
+      },
+      "upgrade": null,
+      "visibility": "list",
+      "web_search_tool_type": "text_and_image"
+    },
+    {
+      "additional_speed_tiers": [],
+      "apply_patch_tool_type": "freeform",
+      "availability_nux": null,
+      "base_instructions": "You are Codex, a coding agent based on GPT-5. You and the user share one workspace, and your job is to collaborate with them until their goal is genuinely handled.\n\n# Core Principles\n\n- You are an AI assistant powered by OpenAI.\n- You write clean, well-structured code.\n- You explain your reasoning when it helps the user learn.\n- You ask clarifying questions rather than assuming.",
+      "context_window": 128000,
+      "default_reasoning_level": "medium",
+      "default_reasoning_summary": "none",
+      "default_verbosity": "low",
+      "description": "GPT-5 Mini — fast and affordable",
+      "display_name": "GPT-5 Mini",
+      "effective_context_window_percent": 95,
+      "experimental_supported_tools": [],
+      "input_modalities": [
+        "text",
+        "image"
+      ],
+      "max_context_window": 128000,
+      "model_messages": {},
+      "priority": 3001,
+      "service_tiers": [],
+      "shell_type": "shell_command",
+      "slug": "gpt-5-mini",
+      "support_verbosity": true,
+      "supported_in_api": true,
+      "supported_reasoning_levels": [
+        {
+          "description": "Fast responses with lighter reasoning",
+          "effort": "low"
+        },
+        {
+          "description": "Balances speed and reasoning depth for everyday tasks",
+          "effort": "medium"
+        },
+        {
+          "description": "Greater reasoning depth for complex problems",
+          "effort": "high"
+        }
+      ],
+      "supports_image_detail_original": true,
+      "supports_parallel_tool_calls": true,
+      "supports_reasoning_summaries": true,
+      "supports_search_tool": true,
+      "truncation_policy": {
+        "limit": 10000,
+        "mode": "tokens"
+      },
+      "upgrade": null,
+      "visibility": "list",
+      "web_search_tool_type": "text_and_image"
+    },
+    {
+      "additional_speed_tiers": [],
+      "apply_patch_tool_type": "freeform",
+      "availability_nux": null,
+      "base_instructions": "You are Codex, a coding agent based on GPT-5. You and the user share one workspace, and your job is to collaborate with them until their goal is genuinely handled.\n\n# Core Principles\n\n- You are an AI assistant powered by OpenAI.\n- You write clean, well-structured code.\n- You explain your reasoning when it helps the user learn.\n- You ask clarifying questions rather than assuming.",
+      "context_window": 128000,
+      "default_reasoning_level": "medium",
+      "default_reasoning_summary": "none",
+      "default_verbosity": "low",
+      "description": "GPT-5 Nano — fastest and cheapest",
+      "display_name": "GPT-5 Nano",
+      "effective_context_window_percent": 95,
+      "experimental_supported_tools": [],
+      "input_modalities": [
+        "text",
+        "image"
+      ],
+      "max_context_window": 128000,
+      "model_messages": {},
+      "priority": 3002,
+      "service_tiers": [],
+      "shell_type": "shell_command",
+      "slug": "gpt-5-nano",
+      "support_verbosity": true,
+      "supported_in_api": true,
+      "supported_reasoning_levels": [
+        {
+          "description": "Fast responses with lighter reasoning",
+          "effort": "low"
+        },
+        {
+          "description": "Balances speed and reasoning depth for everyday tasks",
+          "effort": "medium"
+        }
+      ],
+      "supports_image_detail_original": true,
+      "supports_parallel_tool_calls": true,
+      "supports_reasoning_summaries": true,
+      "supports_search_tool": true,
+      "truncation_policy": {
+        "limit": 10000,
+        "mode": "tokens"
+      },
+      "upgrade": null,
+      "visibility": "list",
+      "web_search_tool_type": "text_and_image"
     }
   ]
 }
