@@ -17,23 +17,30 @@ Multi-Backend Proxy (:18765)  ← 纯 Python，零依赖
 
 ## 快速开始
 
+### 1. 克隆
+
 ```bash
-# 1. 克隆
 git clone https://github.com/ccc1988/glmxcodex.git
 cd glmxcodex
-
-# 2. 安装（交互式输入 API Key）
-./install.sh
-
-# 3. 配置 Codex（编辑 ~/.codex/config.toml）
-# model_provider = "custom"
-# model = "glm-5.1"
-# base_url = "http://127.0.0.1:18765/v4"
-# wire_api = "responses"
-# model_catalog_json = "~/.codex/codex-glm-model-catalog.json"
-
-# 4. 重启 Codex Desktop，选 GLM-5.1
 ```
+
+### 2. 安装
+
+```bash
+./install.sh
+```
+
+交互式输入 API Key，**自动完成**：环境检测 → 备份旧配置 → 写入 API Key → 生成模型目录 → 自动配置 Codex → 启动代理。
+
+### 3. 重启 Codex
+
+退出并重新打开 Codex Desktop，在模型下拉菜单选择 **GLM-5.1**。
+
+> 💡 **出问题了？** 随时运行一键修复：
+> ```bash
+> ./proxy/fix.sh
+> ```
+> 自动检测并修复：cc-switch 干扰、config.toml 被覆盖、模型目录丢失、代理未启动。
 
 ## 操作系统支持
 

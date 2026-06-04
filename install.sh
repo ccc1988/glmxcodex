@@ -316,25 +316,71 @@ SERVICEEOF
     esac
 fi
 
+#==================================================================
+# Auto-configure Codex config.toml
+#==================================================================
 echo ""
 echo -e "${GREEN} ╔══════════════════════════════════════╗${NC}"
 echo -e "${GREEN} ║       Installation Complete!         ║${NC}"
 echo -e "${GREEN} ╚══════════════════════════════════════╝${NC}"
 echo ""
-echo "  Proxy:   http://localhost:$PROXY_PORT"
-echo "  Config:  $PROXY_CONFIG  |  Catalog: $CATALOG_FILE"
+
+# Kill any cc-switch/Codex++ that would overwrite our config
+CCSW=$(pgrep -f "cc-switch" 2>/dev/null || true)
+CCPP=$(pgrep -f "CodexPlusPlus" 2>/dev/null || true)
+[ -n "$CCSW" ] && kill -9 $CCSW 2>/dev/null && warn "Killed cc-switch to prevent config overwrite" || true
+[ -n "$CCPP" ] && kill -9 $CCPP 2>/dev/null && warn "Killed Codex++ to prevent config overwrite" || true
+
+# Write/update config.toml
+mkdir -p "$(dirname "$CODEC_CONFIG")"
+if [ -f "$CODEC_CONFIG" ]; then
+    # Update existing config — only change model + base_url lines
+    TMP_CONFIG="${CODEC_CONFIG}.tmp-$$"
+    cp "$CODEC_CONFIG" "$TMP_CONFIG"
+    if grep -q "^model " "$TMP_CONFIG" 2>/dev/null; then
+        sed -i '' "s/^model = .*/model = \"glm-5.1\"/" "$TMP_CONFIG" 2>/dev/null || sed -i "s/^model = .*/model = \"glm-5.1\"/" "$TMP_CONFIG" 2>/dev/null
+    else
+        echo "model = \"glm-5.1\"" >> "$TMP_CONFIG"
+    fi
+    if grep -q "model_catalog_json" "$TMP_CONFIG" 2>/dev/null; then
+        sed -i '' "s|model_catalog_json = .*|model_catalog_json = \"$CATALOG_FILE\"|" "$TMP_CONFIG" 2>/dev/null || sed -i "s|model_catalog_json = .*|model_catalog_json = \"$CATALOG_FILE\"|" "$TMP_CONFIG" 2>/dev/null
+    else
+        TMP2="${TMP_CONFIG}.2"
+        awk -v line="model_catalog_json = \"$CATALOG_FILE\"" '/^model =/{print; print line; next}1' "$TMP_CONFIG" > "$TMP2" && mv "$TMP2" "$TMP_CONFIG"
+    fi
+    if grep -q "^base_url " "$TMP_CONFIG" 2>/dev/null; then
+        sed -i '' "s|^base_url = .*|base_url = \"http://127.0.0.1:$PROXY_PORT/v4\"|" "$TMP_CONFIG" 2>/dev/null || sed -i "s|^base_url = .*|base_url = \"http://127.0.0.1:$PROXY_PORT/v4\"|" "$TMP_CONFIG" 2>/dev/null
+    fi
+    if ! grep -q "^wire_api " "$TMP_CONFIG" 2>/dev/null; then
+        TMP2="${TMP_CONFIG}.2"
+        awk -v line='wire_api = "responses"' '/^base_url =/{print; print line; next}1' "$TMP_CONFIG" > "$TMP2" && mv "$TMP2" "$TMP_CONFIG"
+    fi
+    mv "$TMP_CONFIG" "$CODEC_CONFIG"
+    ok "Updated: $CODEC_CONFIG"
+else
+    cat > "$CODEC_CONFIG" << TOMLEOF
+model_provider = "custom"
+model = "glm-5.1"
+model_catalog_json = "$CATALOG_FILE"
+
+[model_providers]
+[model_providers.custom]
+name = "Codex-GLM Proxy"
+base_url = "http://127.0.0.1:$PROXY_PORT/v4"
+wire_api = "responses"
+TOMLEOF
+    ok "Created: $CODEC_CONFIG"
+fi
+
+echo ""
+echo "  Proxy:   http://localhost:$PROXY_PORT/health"
+echo "  Config:  $PROXY_CONFIG"
+echo "  Catalog: $CATALOG_FILE"
 echo "  Backup:  $BACKUP_DIR"
 echo ""
-[ ! -f "$CODEC_CONFIG" ] && echo "  CREATE $CODEC_CONFIG:" || echo "  Your config was backed up. Update $CODEC_CONFIG:"
+echo -e "  ${GREEN}Restart Codex Desktop and select GLM-5.1.${NC}"
 echo ""
-echo -e "    ${CYAN}model_provider = \"custom\"${NC}"
-echo -e "    ${CYAN}model = \"glm-5.1\"${NC}"
-echo -e "    ${CYAN}model_catalog_json = \"${CATALOG_FILE}\"${NC}"
-echo ""
-echo -e "    ${CYAN}[model_providers.custom]${NC}"
-echo -e "    ${CYAN}name = \"Codex-GLM Proxy\"${NC}"
-echo -e "    ${CYAN}base_url = \"http://127.0.0.1:${PROXY_PORT}/v4\"${NC}"
-echo -e "    ${CYAN}wire_api = \"responses\"${NC}"
-echo ""
+echo "  If anything breaks later, run: ${CYAN}./proxy/fix.sh${NC}"
+[ "$DRY_RUN" = true ] && echo -e "${YELLOW}DRY RUN — run without --dry-run to apply${NC}"
 echo "  Then restart Codex Desktop and select GLM-5.1."
 [ "$DRY_RUN" = true ] && echo -e "${YELLOW}DRY RUN — run without --dry-run to apply${NC}"
