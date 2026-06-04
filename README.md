@@ -30,7 +30,7 @@ cd glmxcodex
 # model = "glm-5.1"
 # base_url = "http://127.0.0.1:18765/v4"
 # wire_api = "responses"
-# model_catalog_json = "~/.codex/cc-switch-model-catalog.json"
+# model_catalog_json = "~/.codex/codex-glm-model-catalog.json"
 
 # 4. 重启 Codex Desktop，选 GLM-5.1
 ```
@@ -101,14 +101,11 @@ curl http://localhost:18765/health
 </details>
 
 <details>
-<summary>Codex 模型选择器看不到 GLM？</summary>
-确保 <code>model_catalog_json</code> 指向正确的模型目录。安装脚本会自动生成。也可使用 cc-switch 生成后指向其文件。
+<summary>Codex 模型选择器看不到模型？</summary>
+确保 <code>model_catalog_json</code> 指向正确的模型目录文件。安装脚本会自动生成 <code>~/.codex/codex-glm-model-catalog.json</code>。如果丢失，重新运行 <code>./install.sh</code> 即可。
 </details>
 
-<details>
-<summary>cc-switch / Codex++ 会覆盖配置？</summary>
-是的。使用本代理期间请关闭它们。
-</details>
+
 
 <details>
 <summary>Windows 怎么用？</summary>

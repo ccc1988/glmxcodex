@@ -7,3 +7,5 @@ __pycache__/
 *.pid
 .trae/
 codex-glm-proxy.log
+config_backup_*/
+backups/
