@@ -1,137 +1,104 @@
-# Codex + 智谱 GLM 一键配置
+# Codex + 智谱 GLM / DeepSeek 多后端代理
 
-让 [Codex Desktop](https://github.com/openai/codex) 通过 [litellm](https://github.com/BerriAI/litellm) 协议翻译，使用智谱 GLM 大模型。
+让 [Codex Desktop](https://github.com/openai/codex) 通过本地代理使用智谱 GLM、DeepSeek 等非 OpenAI 模型。
 
 ## 架构
 
 ```
-Codex Desktop (Responses API) → litellm (:4000) → 智谱 GLM (Chat Completions)
+Codex Desktop (Responses API)
+        │
+        ▼
+Multi-Backend Proxy (:18765)
+        │
+        ├─ glm-*      → 智譜 GLM Chat Completions API
+        ├─ deepseek-* → DeepSeek Chat Completions API
+        └─ gpt-*, o*  → OpenAI Responses API (直接转发)
 ```
-
-Codex 使用 OpenAI Responses API 协议，而智谱 GLM 只支持 Chat Completions API。litellm 作为中间代理，负责协议转换。
 
 ## 前置条件
 
 - macOS
-- Python 3.10 ~ 3.13（**不支持 3.14+**，litellm 依赖的 orjson 尚未适配）
-- [智谱 API Key](https://open.bigmodel.cn/)（Coding 套餐或标准套餐均可）
+- Python 3.x（无特殊版本要求，仅用标准库）
+- [智谱 API Key](https://open.bigmodel.cn/)
 - [Codex Desktop](https://github.com/openai/codex) 已安装
 
-## 一键安装
+## 快速使用
 
 ```bash
-git clone https://github.com/ccc1988/glmxcodex.git
-cd glmxcodex
-./install.sh
+# 配置 API Key（已有 litellm-config.yaml 会自动读取）
+export GLM_API_KEY="你的智谱Key"
+
+# 启动代理
+cd proxy && ./start.sh
+
+# 配置 Codex：编辑 ~/.codex/config.toml
+# model_provider = "custom"
+# model = "glm-5.1"
+# base_url = "http://127.0.0.1:18765/v4"
+# wire_api = "responses"
+# model_catalog_json = "/Users/xxx/.codex/cc-switch-model-catalog.json"
 ```
 
-安装脚本会自动完成：
-1. 预检系统环境（macOS、Python 版本、Codex Desktop）
-2. 自动检测 Python 3.10~3.13（优先 Miniconda，跳过不兼容版本）
-3. 安装/升级 litellm（含 proxy 依赖）
-4. 备份已有配置（自动保存到 `~/.codex-glm-backup-*`）
-5. 交互式引导配置（API Key、套餐类型、模型选择、端口、开机自启）
-6. 生成所有配置文件
-7. Patch litellm 已知 Bug（正则匹配 + 行级插入双重策略）
-8. 设置开机自启（macOS LaunchAgent）
-9. 启动服务并验证（健康检查 + Responses API 桥接测试）
-10. 安装辅助脚本到用户主目录
+然后重启 Codex Desktop，选择 GLM-5.1 即可使用。
 
-安装完成后，**完全退出 Codex Desktop 再重新打开**，即可使用 GLM 模型。
+## 多模型切换
 
-## 手动配置（高级）
+代理根据模型名前缀自动路由：
 
-如果你不想使用一键脚本，可以参考 [config/](config/) 目录下的模板文件手动配置：
+| 模型 | → 后端 | API Key 来源 |
+|------|--------|-------------|
+| `glm-5.1`, `glm-5` | 智譜 GLM | `~/.claude/litellm-config.yaml` 或环境变量 |
+| `deepseek-chat` | DeepSeek | `~/.claude/proxy-config.json` |
+| `gpt-*`, `o*` | OpenAI | `~/.claude/proxy-config.json` |
 
-| 文件 | 路径 | 说明 |
-|------|------|------|
-| litellm-config.yaml | `~/.claude/litellm-config.yaml` | litellm 代理配置 |
-| config.toml | `~/.codex/config.toml` | Codex 模型配置 |
-| auth.json | `~/.codex/auth.json` | Codex API Key |
-
-### 关键配置说明
-
-1. **模型前缀必须用 `custom_openai/`**，不能用 `openai/`。`openai/` 前缀会让 litellm 原样转发 Responses API 请求，导致 404。
-
-2. **Coding 套餐 vs 标准套餐**：Coding 套餐用 `open.bigmodel.cn/api/coding/paas/v4`，标准套餐用 `open.bigmodel.cn/api/paas/v4`。
-
-3. **litellm Bug Patch**：litellm 的 Responses API 桥接有两个未修复的 Bug，必须手动 patch：
-   - Bug 1：`client_metadata` 等参数未过滤，导致底层客户端报错
-   - Bug 2：非 `function` 类型工具未过滤，GLM 不支持会报错
-
-   运行 `python3 patch/patch_litellm.py <handler.py路径>` 即可修复。
-
-## 常用命令
-
-```bash
-# 启动 litellm
-~/start_litellm.sh
-
-# 停止 litellm
-~/stop_litellm.sh
-
-# 查看日志
-cat /tmp/litellm.log
-
-# 管理开机自启
-launchctl unload ~/Library/LaunchAgents/com.litellm.proxy.plist  # 停止自启
-launchctl load ~/Library/LaunchAgents/com.litellm.proxy.plist    # 恢复自启
+DeepSeek 和 OpenAI 的 Key 配置（`~/.claude/proxy-config.json`）：
+```json
+{
+  "backends": {
+    "deepseek": { "api_key": "你的Key" },
+    "openai": { "api_key": "你的Key" }
+  }
+}
 ```
 
-## 卸载
+## 开机自启
 
 ```bash
-./uninstall.sh
+launchctl load ~/Library/LaunchAgents/com.codex-glm.proxy.plist
 ```
 
 ## 项目结构
 
 ```
 codex-glm/
-├── install.sh                  # 一键安装脚本（核心）
-├── uninstall.sh                # 卸载脚本
-├── LICENSE                     # MIT 许可证
-├── config/                     # 配置模板（手动配置参考）
-│   ├── litellm-config.yaml.template
-│   ├── config.toml.template
-│   └── auth.json.template
-├── patch/                      # litellm Bug 修复
-│   └── patch_litellm.py        # 自动定位 + 双策略 patch
-└── scripts/                    # 辅助脚本模板（install.sh 自动替换变量后安装到 ~/）
-    ├── start_litellm.sh
-    └── stop_litellm.sh
+├── README.md
+├── install.sh                  # 一键安装（litellm 方式，历史保留）
+├── uninstall.sh
+├── proxy/                      # ★ 多后端代理（推荐使用）
+│   ├── proxy.py                # 核心代理，支持 GLM/DeepSeek/OpenAI
+│   ├── start.sh                # 启动脚本
+│   └── stop.sh                 # 停止脚本
+├── patch/
+│   └── patch_litellm.py        # litellm 补丁（历史保留）
+└── config/                     # litellm 配置模板（历史保留）
 ```
-
-## 支持的模型
-
-| 模型 | 说明 |
-|------|------|
-| glm-5.1 | 智谱最新模型（默认） |
-| glm-4-plus | GLM-4 增强版 |
-| glm-4-flash | GLM-4 快速版 |
 
 ## 常见问题
 
-### Q: 安装时报 Python 版本不兼容
-A: litellm 依赖的 orjson 不支持 Python 3.14+。请安装 Python 3.10~3.13，推荐使用 [Miniconda](https://docs.conda.io/en/latest/miniconda.html)。安装脚本会自动检测并优先使用 Miniconda 的 Python。
+### Q: Codex 模型选择器看不到 GLM
+A: 需要 model_catalog_json 指向 cc-switch 格式的模型目录。可以使用 cc-switch 生成的 `~/.codex/cc-switch-model-catalog.json`。
 
-### Q: Codex 报错 "Unexpected keyword argument 'client_metadata'"
-A: litellm 的 Bug 未 patch。运行 `python3 patch/patch_litellm.py <handler.py路径>` 修复。
+### Q: 选了 GLM 但回复还是 GPT-5
+A: 代理会自动替换 Codex 硬编码的 "based on GPT-5" 文字。如果仍然出现，检查 Codex 的 base_url 是否指向代理。
 
-### Q: Codex 报错工具相关错误
-A: 同上，非 function 类型工具未过滤。patch 即可解决。
-
-### Q: litellm 启动报 KeyError: 'litellm_params'
-A: YAML 缩进错误。确保 `litellm_params` 在 `model_name` 下缩进 2 空格。
-
-### Q: 电脑重启后 Codex 连不上
-A: 检查 litellm 是否在运行：`lsof -i :4000`。如果没有，运行 `~/start_litellm.sh`。
+### Q: Codex++ / cc-switch 会覆盖配置
+A: 是的。使用 GLM/DeepSeek 期间请关闭 Codex++ 和 cc-switch。
 
 ## 致谢
 
-- [litellm](https://github.com/BerriAI/litellm) - LLM 代理网关
-- [智谱 GLM](https://open.bigmodel.cn/) - 大语言模型
-- [Codex](https://github.com/openai/codex) - AI 编程助手
+- [JichinX/codex-glm-proxy](https://github.com/JichinX/codex-glm-proxy) — 核心架构参考
+- [glmxcodex](https://github.com/ccc1988/glmxcodex) — 原始 litellm 方案
+- [智谱 GLM](https://open.bigmodel.cn/) / [DeepSeek](https://deepseek.com/)
 
 ## License
 
