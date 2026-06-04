@@ -63,7 +63,7 @@ if [ "$NEED_FIX" = true ]; then
         cp "$CODEC_CONFIG" "$CODEC_CONFIG.bak-$(date +%Y%m%d%H%M%S)"
     fi
     mkdir -p "$(dirname "$CODEC_CONFIG")"
-    printf 'model_provider = "custom"\nmodel = "glm-5.1"\nmodel_catalog_json = "%s"\n\n[model_providers]\n[model_providers.custom]\nname = "Codex-GLM Proxy"\nwire_api = "responses"\nrequires_openai_auth = true\nbase_url = "http://127.0.0.1:%s/v4"\n' "$CATALOG_FILE" "$PROXY_PORT" > "$CODEC_CONFIG"
+    printf 'model_provider = "custom"\nmodel = "glm-5.1"\nmodel_reasoning_effort = "medium"\npersonality = "pragmatic"\nmodel_catalog_json = "%s"\n\n[model_providers]\n[model_providers.custom]\nname = "GLM"\nbase_url = "http://127.0.0.1:%s/v4"\nwire_api = "responses"\nrequires_openai_auth = true\n' "$CATALOG_FILE" "$PROXY_PORT" > "$CODEC_CONFIG"
     ok "Fixed: $CODEC_CONFIG"
     FIXED_ANYTHING=true
 else

@@ -292,13 +292,16 @@ else
     cat > "$CODEC_CONFIG" << TOMLEOF
 model_provider = "custom"
 model = "glm-5.1"
+model_reasoning_effort = "medium"
+personality = "pragmatic"
 model_catalog_json = "$CATALOG_FILE"
 
 [model_providers]
 [model_providers.custom]
-name = "Codex-GLM Proxy"
+name = "GLM"
 base_url = "http://127.0.0.1:$PROXY_PORT/v4"
 wire_api = "responses"
+requires_openai_auth = true
 TOMLEOF
     ok "Created: $CODEC_CONFIG"
 fi
