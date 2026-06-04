@@ -355,6 +355,12 @@ if [ -f "$CODEC_CONFIG" ]; then
         TMP2="${TMP_CONFIG}.2"
         awk -v line='wire_api = "responses"' '/^base_url =/{print; print line; next}1' "$TMP_CONFIG" > "$TMP2" && mv "$TMP2" "$TMP_CONFIG"
     fi
+    if grep -q "^requires_openai_auth " "$TMP_CONFIG" 2>/dev/null; then
+        sed -i '' "s/^requires_openai_auth = .*/requires_openai_auth = true/" "$TMP_CONFIG" 2>/dev/null || sed -i "s/^requires_openai_auth = .*/requires_openai_auth = true/" "$TMP_CONFIG" 2>/dev/null
+    else
+        TMP2="${TMP_CONFIG}.2"
+        awk -v line='requires_openai_auth = true' '/^wire_api =/{print; print line; next}1' "$TMP_CONFIG" > "$TMP2" && mv "$TMP2" "$TMP_CONFIG"
+    fi
     mv "$TMP_CONFIG" "$CODEC_CONFIG"
     ok "Updated: $CODEC_CONFIG"
 else
