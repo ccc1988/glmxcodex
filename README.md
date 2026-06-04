@@ -1,6 +1,6 @@
-# Codex + 智谱 GLM / DeepSeek 多后端代理
+# Codex Multi-Backend Proxy 🚀
 
-让 [Codex Desktop](https://github.com/openai/codex) 通过本地代理使用智谱 GLM、DeepSeek 等非 OpenAI 模型。
+让 [OpenAI Codex Desktop](https://github.com/openai/codex) 使用**智谱 GLM、DeepSeek** 等非 OpenAI 模型。一个本地代理，零外部依赖。
 
 ## 架构
 
@@ -8,97 +8,132 @@
 Codex Desktop (Responses API)
         │
         ▼
-Multi-Backend Proxy (:18765)
+Multi-Backend Proxy (:18765)  ← 纯 Python，零依赖
         │
-        ├─ glm-*      → 智譜 GLM Chat Completions API
-        ├─ deepseek-* → DeepSeek Chat Completions API
-        └─ gpt-*, o*  → OpenAI Responses API (直接转发)
+        ├─ glm-*      → 智譜 Chat Completions
+        ├─ deepseek-* → DeepSeek Chat Completions
+        └─ gpt-*, o*  → OpenAI Responses (直通)
 ```
 
-## 前置条件
-
-- macOS
-- Python 3.x（无特殊版本要求，仅用标准库）
-- [智谱 API Key](https://open.bigmodel.cn/)
-- [Codex Desktop](https://github.com/openai/codex) 已安装
-
-## 快速使用
+## 快速开始
 
 ```bash
-# 配置 API Key（已有 litellm-config.yaml 会自动读取）
-export GLM_API_KEY="你的智谱Key"
+# 1. 克隆
+git clone https://github.com/ccc1988/glmxcodex.git
+cd glmxcodex
 
-# 启动代理
-cd proxy && ./start.sh
+# 2. 安装（交互式输入 API Key）
+./install.sh
 
-# 配置 Codex：编辑 ~/.codex/config.toml
+# 3. 配置 Codex（编辑 ~/.codex/config.toml）
 # model_provider = "custom"
 # model = "glm-5.1"
 # base_url = "http://127.0.0.1:18765/v4"
 # wire_api = "responses"
-# model_catalog_json = "/Users/xxx/.codex/cc-switch-model-catalog.json"
+# model_catalog_json = "~/.codex/cc-switch-model-catalog.json"
+
+# 4. 重启 Codex Desktop，选 GLM-5.1
 ```
 
-然后重启 Codex Desktop，选择 GLM-5.1 即可使用。
+## 操作系统支持
+
+| 系统 | 安装 | 自动启动 | 状态 |
+|------|------|---------|------|
+| macOS | `./install.sh` | LaunchAgent | ✅ 完整支持 |
+| Linux | `./install.sh` | systemd | ✅ 完整支持 |
+| Windows | 手动 `python proxy/proxy.py` | 无（可自行注册服务） | ⚠️ 手动使用 |
 
 ## 多模型切换
 
-代理根据模型名前缀自动路由：
+代理根据模型名自动路由到对应后端：
 
-| 模型 | → 后端 | API Key 来源 |
-|------|--------|-------------|
-| `glm-5.1`, `glm-5` | 智譜 GLM | `~/.claude/litellm-config.yaml` 或环境变量 |
-| `deepseek-chat` | DeepSeek | `~/.claude/proxy-config.json` |
-| `gpt-*`, `o*` | OpenAI | `~/.claude/proxy-config.json` |
+| Codex 中选择的模型 | 实际后端 | 如何配置 API Key |
+|-------------------|---------|-----------------|
+| `glm-5.1`, `glm-5` | 智譜 GLM | 安装时输入，或 `export GLM_API_KEY=...` |
+| `deepseek-chat` | DeepSeek | 安装时输入，或 `export DEEPSEEK_API_KEY=...` |
+| `gpt-*`, `o*` | OpenAI | 安装时输入，或 `export OPENAI_API_KEY_DIRECT=...` |
 
-DeepSeek 和 OpenAI 的 Key 配置（`~/.claude/proxy-config.json`）：
+无需重启代理，切换模型即可自动路由。
+
+## 手动配置 API Key
+
+编辑 `~/.config/codex-glm/proxy-config.json`：
+
 ```json
 {
   "backends": {
-    "deepseek": { "api_key": "你的Key" },
-    "openai": { "api_key": "你的Key" }
+    "glm": {
+      "api_key": "你的智谱Key"
+    },
+    "deepseek": {
+      "api_key": "你的DeepSeekKey"
+    },
+    "openai": {
+      "api_key": "你的OpenAIKey"
+    }
   }
 }
 ```
 
-## 开机自启
+也可以用环境变量：`GLM_API_KEY`、`DEEPSEEK_API_KEY`、`OPENAI_API_KEY_DIRECT`。
+
+## 手动管理代理
 
 ```bash
-launchctl load ~/Library/LaunchAgents/com.codex-glm.proxy.plist
-```
+# 启动
+./proxy/start.sh
 
-## 项目结构
+# 停止
+./proxy/stop.sh
 
-```
-codex-glm/
-├── README.md
-├── install.sh                  # 一键安装（litellm 方式，历史保留）
-├── uninstall.sh
-├── proxy/                      # ★ 多后端代理（推荐使用）
-│   ├── proxy.py                # 核心代理，支持 GLM/DeepSeek/OpenAI
-│   ├── start.sh                # 启动脚本
-│   └── stop.sh                 # 停止脚本
-├── patch/
-│   └── patch_litellm.py        # litellm 补丁（历史保留）
-└── config/                     # litellm 配置模板（历史保留）
+# 查看日志
+tail -f /tmp/codex-glm-proxy.log
+
+# 健康检查
+curl http://localhost:18765/health
 ```
 
 ## 常见问题
 
-### Q: Codex 模型选择器看不到 GLM
-A: 需要 model_catalog_json 指向 cc-switch 格式的模型目录。可以使用 cc-switch 生成的 `~/.codex/cc-switch-model-catalog.json`。
+<details>
+<summary>选了 GLM 回复还是 GPT-5？</summary>
+代理会自动替换 Codex 硬编码的 "based on GPT-5" 提示词。如仍有问题，检查 <code>base_url</code> 是否正确指向 <code>http://127.0.0.1:18765/v4</code>。
+</details>
 
-### Q: 选了 GLM 但回复还是 GPT-5
-A: 代理会自动替换 Codex 硬编码的 "based on GPT-5" 文字。如果仍然出现，检查 Codex 的 base_url 是否指向代理。
+<details>
+<summary>Codex 模型选择器看不到 GLM？</summary>
+确保 <code>model_catalog_json</code> 指向正确的模型目录。安装脚本会自动生成。也可使用 cc-switch 生成后指向其文件。
+</details>
 
-### Q: Codex++ / cc-switch 会覆盖配置
-A: 是的。使用 GLM/DeepSeek 期间请关闭 Codex++ 和 cc-switch。
+<details>
+<summary>cc-switch / Codex++ 会覆盖配置？</summary>
+是的。使用本代理期间请关闭它们。
+</details>
+
+<details>
+<summary>Windows 怎么用？</summary>
+<code>python proxy/proxy.py</code> 直接运行。或注册为 Windows 服务。代理本身纯 Python，跨平台。
+</details>
+
+## 项目结构
+
+```
+├── install.sh          # 跨平台安装脚本
+├── uninstall.sh        # 卸载脚本
+├── proxy/
+│   ├── proxy.py        # ★ 核心代理（多后端路由）
+│   ├── start.sh        # 启动 / 停止
+│   └── stop.sh
+├── patch/
+│   └── patch_litellm.py
+├── config/             # 配置模板
+└── scripts/            # litellm 辅助脚本
+```
 
 ## 致谢
 
 - [JichinX/codex-glm-proxy](https://github.com/JichinX/codex-glm-proxy) — 核心架构参考
-- [glmxcodex](https://github.com/ccc1988/glmxcodex) — 原始 litellm 方案
-- [智谱 GLM](https://open.bigmodel.cn/) / [DeepSeek](https://deepseek.com/)
+- [智谱 AI](https://open.bigmodel.cn/) / [DeepSeek](https://deepseek.com/) / [OpenAI](https://openai.com/)
 
 ## License
 

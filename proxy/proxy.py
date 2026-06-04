@@ -35,13 +35,28 @@ except Exception:
     except Exception:
         SSL_CONTEXT = ssl._create_unverified_context()
 
-CONFIG_PATH = os.path.expanduser("~/.claude/proxy-config.json")
+_CONFIG_SEARCH_PATHS = [
+    os.environ.get("CONFIG_DIR", ""),
+    os.path.expanduser("~/.config/codex-glm"),
+    os.path.expanduser("~/.claude"),
+    os.path.expanduser("~/.codex"),
+]
 PROXY_PORT = int(os.environ.get("PROXY_PORT", 18765))
 
 BACKENDS = {}
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger("proxy")
+
+
+def _find_config_file(name):
+    for base in _CONFIG_SEARCH_PATHS:
+        if not base:
+            continue
+        path = os.path.join(base, name)
+        if os.path.isfile(path):
+            return path
+    return None
 
 
 def load_config():
@@ -63,23 +78,32 @@ def load_config():
             "api_key": os.environ.get("OPENAI_API_KEY_DIRECT", ""),
         },
     }
-    try:
-        with open(CONFIG_PATH, "r") as f:
-            user_cfg = json.load(f)
-        for k, v in user_cfg.get("backends", {}).items():
-            if k in cfg:
-                cfg[k].update(v)
-    except Exception:
-        pass
-    try:
-        with open(os.path.expanduser("~/.claude/litellm-config.yaml"), "r") as f:
-            content = f.read()
-        import re
-        m = re.search(r'api_key:\s*["\']?([a-zA-Z0-9_.-]+)["\']?', content)
-        if m and m.group(1) != "PROXY_MANAGED" and not cfg["glm"]["api_key"]:
-            cfg["glm"]["api_key"] = m.group(1)
-    except Exception:
-        pass
+
+    config_path = _find_config_file("proxy-config.json")
+    if config_path:
+        try:
+            with open(config_path, "r") as f:
+                user_cfg = json.load(f)
+            for k, v in user_cfg.get("backends", {}).items():
+                if k in cfg:
+                    cfg[k].update(v)
+            log.info(f"Loaded config: {config_path}")
+        except Exception:
+            pass
+
+    litellm_cfg = _find_config_file("litellm-config.yaml")
+    if litellm_cfg and not cfg["glm"]["api_key"]:
+        try:
+            with open(litellm_cfg, "r") as f:
+                content = f.read()
+            import re
+            m = re.search(r'api_key:\s*["\']?([a-zA-Z0-9_.-]+)["\']?', content)
+            if m and m.group(1) != "PROXY_MANAGED":
+                cfg["glm"]["api_key"] = m.group(1)
+                log.info("Loaded GLM key from litellm-config.yaml")
+        except Exception:
+            pass
+
     BACKENDS = cfg
     return cfg
 

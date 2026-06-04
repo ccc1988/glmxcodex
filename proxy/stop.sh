@@ -1,15 +1,16 @@
-#!/bin/bash
-PID_FILE="/tmp/codex-glm-proxy.pid"
+#!/usr/bin/env bash
+set -e
+
+PID_FILE="${PID_FILE:-/tmp/codex-glm-proxy.pid}"
 
 if [ -f "$PID_FILE" ]; then
     PID=$(cat "$PID_FILE")
-    if ps -p "$PID" > /dev/null 2>&1; then
-        kill "$PID"
+    if kill "$PID" 2>/dev/null; then
         echo "Proxy stopped (PID: $PID)"
     else
-        echo "Proxy not running (stale PID file)"
+        echo "Proxy not running (stale PID)"
     fi
     rm -f "$PID_FILE"
 else
-    pkill -f "proxy.py.*18765" 2>/dev/null && echo "Proxy stopped" || echo "Proxy not running"
+    echo "No PID file found. Try: pkill -f proxy.py"
 fi
