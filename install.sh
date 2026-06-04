@@ -321,28 +321,37 @@ echo -e "${YELLOW}── Step 5/5: Start proxy${NC}"
 if [ "$DRY_RUN" = true ]; then
     info "[DRY RUN] Would start proxy on port $PROXY_PORT"
 else
-    # Stop any running instance first
+    # Stop old proxy by PID file
     if [ -f "$PROXY_PID" ]; then
         OLD_PID=$(cat "$PROXY_PID")
         kill "$OLD_PID" 2>/dev/null && warn "Stopped old proxy (PID: $OLD_PID)" || true
         rm -f "$PROXY_PID"
     fi
 
-    # Port check
-    if command -v lsof &>/dev/null; then
+    # Aggressively free the port - try up to 3 times
+    PORT_ATTEMPTS=0
+    while command -v lsof &>/dev/null && [ $PORT_ATTEMPTS -lt 3 ]; do
         PORT_PID=$(lsof -ti ":$PROXY_PORT" 2>/dev/null || true)
-        if [ -n "$PORT_PID" ]; then
-            warn "Port $PROXY_PORT in use by PID $PORT_PID. Killing..."
-            kill "$PORT_PID" 2>/dev/null || true
-            sleep 1
+        [ -z "$PORT_PID" ] && break
+        warn "Port $PROXY_PORT in use by PID $PORT_PID. Killing..."
+        kill -9 $PORT_PID 2>/dev/null || true
+        sleep 2
+        PORT_ATTEMPTS=$((PORT_ATTEMPTS + 1))
+    done
+
+    # Final check
+    if command -v lsof &>/dev/null; then
+        STILL=$(lsof -ti ":$PROXY_PORT" 2>/dev/null || true)
+        if [ -n "$STILL" ]; then
+            err "Port $PROXY_PORT still in use after cleanup. Manual fix: kill -9 $STILL"
         fi
     fi
 
-    # Start
+    # Start fresh
     nohup "$PYTHON" "$SCRIPT_DIR/proxy/proxy.py" > "$PROXY_LOG" 2>&1 &
     PID=$!
     echo "$PID" > "$PROXY_PID"
-    sleep 2
+    sleep 3
 
     if kill -0 "$PID" 2>/dev/null; then
         ok "Proxy running (PID: $PID, port: $PROXY_PORT)"
